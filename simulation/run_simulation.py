@@ -7,10 +7,11 @@ import time
 from datetime import datetime, timedelta
 from database.config import get_db_connection
 from simulation.normal_traffic import simulate_user_activity
+from simulation.attack_bot import simulate_malicious_activity
+from simulation.utils import get_logger
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-log = logging.getLogger(__name__)
+# Initialize logger
+log = get_logger("orchestrator")
 
 def get_all_users():
     """Fetch all user IDs from the database."""
@@ -25,52 +26,69 @@ def get_all_users():
     conn.close()
     return users
 
-def run_concurrent_users(num_users=10, duration=None):
+def run_simulation(num_users=10, num_attackers=2, duration=None):
     """
-    Simulate multiple users concurrently.
+    Run a mixed simulation with normal + malicious users.
     
     Args:
-        num_users (int): Number of users to simulate.
-        duration (int or None): Duration in seconds to keep simulation running.
-                                If None, runs each user once and exits.
+        num_users (int): Number of normal users.
+        num_attackers (int): Number of malicious users.
+        duration (int or None): Duration in seconds to run. If None, runs once.
     """
     all_users = get_all_users()
     if not all_users:
         log.error("No users found in the database.")
         return
 
-    # Randomly pick users
-    sampled_users = random.sample(all_users, min(num_users, len(all_users)))
+    # Pick random users for normal and malicious sessions
+    random.shuffle(all_users)
+    normal_users = all_users[:min(num_users, len(all_users))]
+    attacker_users = all_users[min(num_users, len(all_users)):min(num_users + num_attackers, len(all_users))]
 
-    log.info(f"Starting simulation with {len(sampled_users)} users...")
+    log.info(f"Starting simulation: {len(normal_users)} normal users, {len(attacker_users)} attackers.")
 
     threads = []
     end_time = datetime.utcnow() + timedelta(seconds=duration) if duration else None
 
-    def user_loop(user_id):
-        """Loop actions for one user until duration expires (or just once)."""
+    def normal_user_loop(user_id):
+        """Loop normal activity until duration ends (or once)."""
         if duration:
             while datetime.utcnow() < end_time:
                 simulate_user_activity(user_id)
-                time.sleep(random.uniform(1, 3))  # small pause between actions
+                time.sleep(random.uniform(0.5, 2))
         else:
             simulate_user_activity(user_id)
 
-    # Create threads
-    for user_id in sampled_users:
-        t = threading.Thread(target=user_loop, args=(user_id,))
+    def attacker_user_loop(user_id):
+        if duration:
+            while datetime.utcnow() < end_time:
+                simulate_malicious_activity(user_id)
+                # ⏳ stealthy attacker: 30–120 seconds between attacks
+                time.sleep(random.uniform(30, 120))
+        else:
+            simulate_malicious_activity(user_id)
+
+    # Launch threads for normal users
+    for uid in normal_users:
+        t = threading.Thread(target=normal_user_loop, args=(uid,))
         threads.append(t)
         t.start()
 
-    # Wait for threads to finish
+    # Launch threads for malicious users
+    for uid in attacker_users:
+        t = threading.Thread(target=attacker_user_loop, args=(uid,))
+        threads.append(t)
+        t.start()
+
+    # Wait for all threads to finish
     for t in threads:
         t.join()
 
-    log.info("✅ Simulation complete.")
+    log.info("✅ Mixed simulation complete.")
 
 if __name__ == "__main__":
-    # Example: simulate 20 users for 60 seconds
-    run_concurrent_users(num_users=20, duration=60)
+    # Example: run 8 normal users + 2 attackers for 60 seconds
+    run_simulation(num_users=8, num_attackers=2, duration=3600)
 
-    # Or, if you just want to simulate once without duration:
-    # run_concurrent_users(num_users=10)
+    # Or run a one-shot simulation without duration:
+    # run_simulation(num_users=5, num_attackers=1)
