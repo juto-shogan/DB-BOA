@@ -27,7 +27,7 @@ def execute_sql_file(cursor, filepath):
 
 def initialize_database():
     """Initializes the database schema and seeds data."""
-    log.info("🚀 Starting database initialization...")
+    log.info(" Starting database initialization...")
     conn = None
     try:
         conn = get_db_connection()
