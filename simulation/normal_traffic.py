@@ -4,10 +4,10 @@ import random
 import logging
 from datetime import datetime
 from database.config import get_db_connection
+from simulation.utils import get_logger, log_to_csv
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-log = logging.getLogger(__name__)
+# Initialize logger
+log = get_logger("normal_traffic")
 
 def log_query(cursor, user_id, query):
     """Insert executed query into db_logs for ML later."""
@@ -74,26 +74,26 @@ def simulate_write_review(cursor, user_id):
     log_query(cursor, user_id, f"INSERT INTO reviews (...) VALUES ({product_id}, {user_id}, {rating}, ...);")
 
 def simulate_user_activity(user_id):
-    """Run a simulated session for one user (2–4 random actions)."""
     conn = get_db_connection()
-    if not conn:
-        log.error("Database connection failed. Exiting simulation.")
+    if not conn: 
         return
-    cursor = conn.cursor()
+    cur = conn.cursor()
 
     try:
-        actions = [simulate_browse_products, simulate_place_order, simulate_write_review]
-        for _ in range(random.randint(2, 4)):  # Each session has 2–4 actions
-            action = random.choice(actions)
-            action(cursor, user_id)
+        # Example: user places an order
+        query_str = f"INSERT INTO orders (user_id, total_amount, status) VALUES ('{user_id}', 99.99, 'completed');"
+        cur.execute(query_str)
+
+        # Log both to DB logs (your db_logs table) and CSV
+        log.info(f"User {user_id} placed an order.")
+        log_to_csv(user_id, query_str, is_normal=True)
 
         conn.commit()
-        log.info(f"[User {user_id}] Session completed successfully.")
     except Exception as e:
-        log.error(f"Error during user simulation: {e}")
+        log.error(f"Error simulating activity for {user_id}: {e}")
         conn.rollback()
     finally:
-        cursor.close()
+        cur.close()
         conn.close()
 
 if __name__ == "__main__":
