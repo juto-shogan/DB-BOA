@@ -58,12 +58,14 @@ CREATE TABLE IF NOT EXISTS system_logs (
 );
 
 -- Database traffic logs (for ML)
+-- Table for logging DB queries (normal + malicious)
 CREATE TABLE IF NOT EXISTS db_logs (
     log_id BIGSERIAL PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     user_id UUID REFERENCES users(user_id),
     query TEXT NOT NULL,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    anomaly_score NUMERIC DEFAULT 0
+    is_normal BOOLEAN NOT NULL,
+    attack_type VARCHAR(50) -- NULL for normal traffic, set for malicious
 );
 
 -- Indexes
