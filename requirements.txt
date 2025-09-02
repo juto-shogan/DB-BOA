@@ -1,0 +1,15 @@
+# File: requirements.txt
+
+# Database interaction
+psycopg2-binary==2.9.9
+
+# Environment variable management
+python-dotenv==1.0.1
+
+# Data generation for simulation
+Faker==25.8.0
+
+# Data manipulation for ML (to be used later)
+pandas==2.2.2
+scikit-learn==1.5.0
+numpy==1.26.4
